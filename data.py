@@ -212,7 +212,7 @@ def merge1(dict1, dict2):
 
 
 
-
+"""
 def update_by_path(dict1, my_path, update=""):
     #print(type(my_path))
     #print(my_path)
@@ -232,3 +232,5 @@ def update_by_path(dict1, my_path, update=""):
         print('ok')
         print(update)
         return update
+
+"""        

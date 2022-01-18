@@ -79,7 +79,7 @@ class _Quotes(Scalar):
             print(f'>>>>>>>>>>>>>Error currency {s}')
             raise Exception('Incorrect currency param')
         print(f'i am currency serializer {s}')
-        return f'{s} ------ S'
+        return f'{s}'
 
 
 
@@ -135,12 +135,10 @@ class CurrencySelect(ObjectType):
     def resolve_change(root, info, change='', **kwargs):
         return change
 
-    '''
+    
     def resolve_value(root, info, value='', **kwargs):
-        print(kwargs)
         return value
-    '''
-
+    
 
 
 """Element definition"""
@@ -221,10 +219,6 @@ class FxSchema(ObjectType):
     datetime = String()  
     dev = Field(_Dev, el_id=String())                  
 
-    
-
-
-
     def resolve_name(root, info, name='', **kwargs):
         return name
 
@@ -239,27 +233,44 @@ class FxSchema(ObjectType):
 class ValidationMiddleware(object):
 
     current = dict()
-    current_element = ''
+    el_id = None
+    #current_element = ''
 
 
     def update_by_path(self, dict1, my_path, update=""):
         #print(type(my_path))
         #print(my_path)
-        print(f'>>> path {my_path.key}')
+        #print(f'>>> path {my_path.key}')
 
 
         if my_path.prev:
         
             key = my_path.key
             if key == 'element':
-                key = 'ma_val' 
+                key = self.el_id #'ma_val' 
 
             update = {key: update}        
     
             return self.update_by_path(dict1, my_path.prev, update)
         else:
-            print(update)
+            #print(update)
+            #merge1(dict1, update.get('data'))  # !!! Bug here
+            merge1(SCHEMA_SKELETON, update.get('data'))  # !!! Bug here
             return update
+
+
+    def validate_value(self, field, value):
+        if hasattr(field, 'serialize'):
+            return field.serialize(value)
+        
+        #if hasattr(field, 'parse_literal'):
+        
+        #if hasattr(field, 'parse_value'):
+          
+
+
+        return value    
+
 
 
     def resolve(self, next, root, info, **args):
@@ -272,38 +283,8 @@ class ValidationMiddleware(object):
         #print(f'{self.current}')     
         #self.current = info.path 
         #print(f'{self.current}')     
-        
 
-        '''
-        if root:
-            print(root) 
-            try:
-                print(f'>{root.get(field, "")}')
-            except Exception as e:
-                print(e)
-
-
-            try:
-                print(f'>{getattr(root, field)}')
-            
-            except Exception as e:
-                print(e)
-        '''
-
-        
-
-        update_value = info.context.get(field, None)
-        if update_value:
-            print(f'> Found update value {update_value}')
-            update = self.update_by_path(SCHEMA_SKELETON, info.path, update_value)
-            #self.current = merge1(self.current, update) 
-
-
-        #if field == 'currency':
-        #    dict_obj['value'] = 'EURUSD'
-
- 
-
+         
         '''
         if field in info.context:
             args.update({field: info.context[field]})
@@ -315,23 +296,43 @@ class ValidationMiddleware(object):
             if field in root.__dict__:
                 args.update({field: root.__dict__.get(field, "z")})
         '''
+        
+        '''
+        update = info.context.get('update', None)
+        if update:
+            print(f'> Update found')
+            merge1(SCHEMA_SKELETON, update) 
+            del info.context['update']
+        ''' 
+                 
+        if 'el_id' in args:
+            self.el_id = args.get('el_id')
 
-        #print(f'> update {args}')
+        
+
+        update_value = info.context.get(field, None)
+        
+        if update_value:
+            print(f'> Found kwargs value {update_value}')
+            update_value = self.validate_value(info.return_type, update_value)
+            update = self.update_by_path(info.context['update'], info.path, update_value)
+            args.update({field: update_value})
+    
+           
+        result = next(root, info, **args)       
+        #print(dir(result))            
+     
+
+
+
+
+
 
 
 
         print('\n')
-        
-        '''
-        elif type(root) == dict:
-            args.update({field: root.get(field, "")})
-        '''
-
-        #print(json.dumps(self.current, indent=4))
-
-
-        return next(root, info, **args)        
-
+        #return next(root, info, **args)       
+        return result
 
 """Mutations"""
 
@@ -407,26 +408,11 @@ class Query(ObjectType):
     '''
 
 
+context['update'] = SCHEMA_SKELETON
+
 
 schema = Schema(query=Query, mutation=Mutations, auto_camelcase=False)
-result = schema.execute(query, root=SCHEMA_SKELETON, middleware=[ValidationMiddleware()], variables=variables, context=context)
-#result = schema.execute(query, variables=variables, context=context)
-
-
-#print(result.data.get('update_element'))
-
-'''
-update = result.data.get('update_element')
-if update:
-    
-    el_data = update.get('element')
-    if el_data:
-        el_id = el_data.get('id')
-        update_data = {"dev": {el_id: el_data}}
-        result = merge1(SCHEMA_SKELETON, update_data)
-        print(json.dumps(result, sort_keys=False, indent=4))
- 
-'''
+result = schema.execute(query, middleware=[ValidationMiddleware()], variables=variables, context=context)
 
 
 # If update query -> update result ???
@@ -434,6 +420,10 @@ if update:
 
 print(json.dumps(result.data, sort_keys=False, indent=4))
 print(result.errors)
+
+
+#print(json.dumps(SCHEMA_SKELETON, sort_keys=False, indent=4))
+print(json.dumps(context.get('update'), sort_keys=False, indent=4))
 
 
 #query = 'mutation myFirstMutation {addElement(name:"s_in2"){element {id displayName typeId}}}'
