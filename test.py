@@ -223,12 +223,24 @@ class Query(ObjectType):
 
 
 if __name__=='__main__':
-    """Usage example"""    
+    """Usage example
+
+   Update DATA_SAMPLE dict during the querying of corresponding fields. 
+   The position of updated field is defined by query structure, field value 
+   may be placed in `variables` or hardcoded directly in query. 
+   If no args be defined for the field - existing dict value will be resolved. 
+
+   is will be discovered 
+
+   Updates DATA_SAMPLE dict `ma`, `s_in`,  
+
+    """    
 
     query = """query($el_id: String, $update: String) {
                     my_data {
                             id
                             name
+                            currency(val: $update)                                   )
                             dev {
                                 element(el_id: $el_id) {
                                     type_id
