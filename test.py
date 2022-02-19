@@ -1,433 +1,261 @@
 # -*- coding: utf-8 -*-
-
-
+import collections
+from copy import deepcopy
 import graphene
-from graphene import ObjectType, String, Schema, Field, List
-from graphene import ID
-from graphene.types import Scalar
+from graphene import ObjectType, String, Schema, Field, Int, Boolean
 import json
+import data
+from structure import FlowchartStructure as DataStructure # Use such alias for your schema
 
-from data import *
+"""
 
-from graphene.types.resolver import dict_resolver
+Graphene usage to update and validate values of nested dictionary. Allow to update
+corresponding fields during GraphQL standart query syntax.  
 
+Your graphene object should be designed to define data strucrure and field types.
+Import your object as `DataStructue` alias to avoid naming collision. 
 
-Data = {}
+A special middleware `StructureUpdate` allow to intercept field `args`, 
+validate them and update corresponding key -> value of Data dict. 
+If validation has failed - update will be skipped, and your data remains.
+As a `Scalar` type is an endpoint of field resolving, `StructureUpdate` may utilize
+`serialize` method of corresponding field to validate it's update value. 
 
+"""
 
-'''
-class UserType(DjangoObjectType):
 
-    class Meta:
-        model = User
-        fields = (
-            'id',
-            'username',
-            'password',
-            'email',
-            'first_name',
-            'last_name',
-            'is_active',
-            'group_ids',
-        )
+class NestingUpdate(object):
+    """ Update nesting dict key - values during GraphQL field resolving
 
-    full_name = graphene.String()           # Python property
-    full_identification = graphene.String() # Python property
+    The validation of incoming params must be implemented via defining
+    Scalar based subclasses to allow  middleware utilize the `serialize` method
+    to validate value for updated field
 
+    """
+    el_id = None         # This is specific only for TradingFlowcharts
+    context_key = 'update'
 
-- Updating of element
-- check if elementt exists by id
-- dynamycally load fields from existing schema element !!!
-- update element's data from kwargs
+    def create_update(self, my_path, update=""):
+        """Generates dict with a depth to corresponding field,
+        uses info.path to discover element nesting
 
-in Mutation it provides element data only -> retrieve element id
-in Mutation you should receive element by id and then save
-
-'''
-
-
-
-"""Custom Scalars"""
-
-class ShortString(Scalar):
-    
-    myformat = String(default_value='')
-
-    @staticmethod
-    def serialize(s):
-        print(f'i am short string resolver')
-        return f'ShortString {s}'
-
-
-class PeriodSelect(Scalar):
-    
-    @staticmethod
-    def serialize(s):
-        periods = ['5', '15', '60', '240']
-        if s not in periods:
-            return False
-        print(f'i am resolver')
-        return f'{s} ------ S'
-
-
-class _Quotes(Scalar):
-
-    @staticmethod
-    def serialize(s):
-        values = AVAILABLE_QUOTES
-        if s not in values:
-            print(f'>>>>>>>>>>>>>Error currency {s}')
-            raise Exception('Incorrect currency param')
-        print(f'i am currency serializer {s}')
-        return f'{s}'
-
-
-
-# Element beginning
-'''
-class FlowchartElement(graphene.Interface):
-    id = graphene.ID(required=True, default_value='1')
-    display_name = graphene.String(required=True, default_value='element1')
-    type_id = graphene.String(required=True, default_value='None')
-    top = graphene.Int(required=True, default_value=0)
-    left = graphene.Int(required=True, default_value=880)
-    #params = graphene.ObjectType
-'''
-
-
-"""Element params"""
-
-class ElementParam(graphene.Interface):
-    id = String()                               # Restricted for changing 
-    display_name = String(default_value='')     
-    change = String(default_value='text')       # Restricted for changing
-    info_arr = String(default_value='sensor')   # You can't change this param
-
-    def resolve_display_name(root, info, display_name='', **kwargs):
-        return display_name
-
-
-class StringParam(ObjectType):
-    class Meta:
-        interfaces = (ElementParam, )
-    value = String(default_value='') 
-
-
-class MaSelect(ObjectType):
-    class Meta:
-        interfaces = (ElementParam, )
-    
-    value = Field(String) # Available currency
- 
-    def resolve_value(root, info, value='', **kwargs):
-         return value
-
-
-class CurrencySelect(ObjectType):
-    class Meta:
-        interfaces = (ElementParam, )
-    
-    change = String()       # Available change
-    value = Field(_Quotes)   # Available currency
-    #value = Field(ListValue, to=String(default_value='i am here')) # Available currency
-    #value = Currency()
-
-    def resolve_change(root, info, change='', **kwargs):
-        return change
-
-    
-    def resolve_value(root, info, value='', **kwargs):
-        return value
-    
-
-
-"""Element definition"""
-
-
-
-class Params(ObjectType):
-    """List all available elements params here"""
-    l_in = Field(StringParam)   # define short string, currency param #graphene.String(required=True, default_value='')
-    l_out = Field(StringParam)   #graphene.String(required=True, default_value='')
-    s_in = Field(StringParam)   #graphene.String(required=True, default_value='')
-    s_out = Field(StringParam)  #graphene.String(required=True, default_value='')
-    #ma = Field(MaSelect) 
-    # period
-    currency = Field(CurrencySelect) 
-
-    # Deprecated        
-    #@classmethod 
-    #def get_param(self, name):
-    #    print('--------Get param-----------')
-    #    param = getattr(self, name)
-    #    return param.type
-
-
-
-class Element(ObjectType):
-    """Flowchart element common structure"""
-    
-    #class Arguments:
-    #    display_name = String()
-
-    id = graphene.String(required=True, default_value='')
-    display_name = graphene.String(required=True)
-    top = graphene.Int(required=True, default_value=0)
-    left = graphene.Int(required=True, default_value=880)
-    type_id = Field(ShortString) 
-    params = Field(Params)
-
-    def resolve_type_id(root, info, type_id='', **kwargs):
-        return type_id
-
-    #def resolve_display_name(root, info, display_name='', **kwargs):
-    #    return display_name
-
-
-    '''  
-    @staticmethod
-    def update_param(self, name, field, value):
-        print(f'> Update {name} -> {field} -> {value}')
-        # Retrieve subclass class of certain param
-        param_class = Params.get_param(name)
-        param_class.validate(field, value)
-        # If no errors -> change param value
-        self.params[name]['value'] = value
-    '''    
-
-
-
-
-class _Dev(ObjectType):
-    
-    element = Field(Element, el_id=String())  
-    
-    def resolve_element(root, info, el_id, **kwargs):
-        #el_id = "ma_val"
-        print(el_id)
-        el_data = SCHEMA_SKELETON['dev'][el_id]
-        return Element(**el_data)
-    
-
-class FxSchema(ObjectType):
-    """Flowchart schema common structure"""
-    
-    id = String(required=True)            # Restricted
-    name = String(required=True)          
-    enable = String(required=True)        
-    currency = String(required=True)       
-    datetime = String()  
-    dev = Field(_Dev, el_id=String())                  
-
-    def resolve_name(root, info, name='', **kwargs):
-        return name
-
-
-
-    
-
-
-
-
-
-class ValidationMiddleware(object):
-
-    current = dict()
-    el_id = None
-    #current_element = ''
-
-
-    def update_by_path(self, dict1, my_path, update=""):
-        #print(type(my_path))
-        #print(my_path)
-        #print(f'>>> path {my_path.key}')
-
-
+        """
         if my_path.prev:
-        
             key = my_path.key
+
+            
+
+            # This is specific only for TradingFlowcharts structure
             if key == 'element':
-                key = self.el_id #'ma_val' 
-
-            update = {key: update}        
-    
-            return self.update_by_path(dict1, my_path.prev, update)
-        else:
-            #print(update)
-            #merge1(dict1, update.get('data'))  # !!! Bug here
-            merge1(SCHEMA_SKELETON, update.get('data'))  # !!! Bug here
-            return update
+                key = self.el_id
+            ###
+            
 
 
-    def validate_value(self, field, value):
-        if hasattr(field, 'serialize'):
-            return field.serialize(value)
-        
-        #if hasattr(field, 'parse_literal'):
-        
-        #if hasattr(field, 'parse_value'):
-          
+            update = {key: update}
+            return self.create_update(my_path.prev, update)
+        return update
 
+    def apply_update(self, data, update):
+        """Updates data dict recursively by update dict, mutable method"""
 
-        return value    
+        for key, value in update.items():
 
+            if isinstance(value, collections.Mapping):
+                data[key] = self.apply_update(data.get(key, {}), value)
+            else:
+                data[key] = deepcopy(update[key])
 
+        return data
 
     def resolve(self, next, root, info, **args):
-        
-        """You may use context `update` internally dict for update values"""
-
-        #dict_obj = SCHEMA_SKELETON['dev']["ma_val"]["params"].get('currency')
-        field = info.field_name
-        print(f'> Validation {field}') 
-        #print(f'{self.current}')     
-        #self.current = info.path 
-        #print(f'{self.current}')     
-
-         
-        '''
-        if field in info.context:
-            args.update({field: info.context[field]})
-        
-        elif type(root) == dict:
-            args.update({field: root.get(field, "")})
-        
-        elif hasattr(root, '__dict__'):
-            if field in root.__dict__:
-                args.update({field: root.__dict__.get(field, "z")})
-        '''
-        
-        '''
-        update = info.context.get('update', None)
-        if update:
-            print(f'> Update found')
-            merge1(SCHEMA_SKELETON, update) 
-            del info.context['update']
-        ''' 
+        """Provides data validation and structure update during resolving"""
+      
+        # Context must contain dict for update, otherwize -> skip this Middleware
+        if not self.context_key in info.context:
+            return next(root, info, **args)
                  
+        # This requirement is specific for flowchart data structure and may be skipped
         if 'el_id' in args:
             self.el_id = args.get('el_id')
-
+            return next(root, info, **args)  # Check this stuff later
         
+        update_value = list(args.values()).pop() if args.values() else None
 
-        update_value = info.context.get(field, None)
-        
-        if update_value:
-            print(f'> Found kwargs value {update_value}')
-            update_value = self.validate_value(info.return_type, update_value)
-            update = self.update_by_path(info.context['update'], info.path, update_value)
-            args.update({field: update_value})
-    
+        # The narrow place here -> we have to destinguish update variable
+        # because it may be passed as 0 or Null ???
+        if update_value or update_value==0:     
+            
+            #print(f'>> Found kwargs argument {update_value}')
+
+            # Scalar type is an endpoint of data resolving, so we may use it for validation            
+            field = info.return_type             
+            result = field.serialize(update_value) if hasattr(field, 'serialize') else update_value
            
-        result = next(root, info, **args)       
-        #print(dir(result))            
-     
+            # Construct update
+            update = self.create_update(info.path, result)
+           
+            # If no errors - update data structure
+            try:
+                self.apply_update(info.context.get(self.context_key), update)
+            except Exception as e:
+                #print(f'Failed to apply update {e}')    
+                return next(root, info, **args)
+                
+
+            return result
+            
+        #print('\n')
+        return next(root, info, **args)
 
 
+# Deprecated
+class UpdateNestingData(graphene.Mutation):
+    """Provides nested data structure update
 
+    This mutation provides nested dict data validation and  update
+    during resolving of corresponding query. Standard GraphQL syntax and 
+    variables should be used.
+    
+    Descripton:
+        - Retriveves dict data (any method may be used)
+        - Push data into `context`, to provide access for `StructureUpdate` middleware. 
+            Notice: the same `context_key` should be used for mutation and middleware
+            to destinguish your data.   
+        - Init graphene Data object of your data, `DataStructure` alias is used for convenience  
+        - Data object is binded to mutation `Output` to provide query resolving 
 
-
-
-
-
-        print('\n')
-        #return next(root, info, **args)       
-        return result
-
-"""Mutations"""
-
-class UpdateElement(graphene.Mutation):
-
-    """Updates flowchart element
-
-    This method must accept element id and init element's data 
-    Updating process uses ValidationMiddleware to push values from context to kwargs
-    and further resolving of updated param. Allow to update multiple params (uniqie)
-    with deep nesting.
     """
- 
+    
     class Arguments:
-        el_id = String(default_value='') 
+        id = Int(required=True, description="The interenal ID to distinguish your data")
+        context_key = String(default_value='update')
+
+    Output = DataStructure
     
-    element = Field(Element, el_id=String())
+    def mutate(self, info, id, context_key, **kwargs) :
     
-    def mutate(self, info, el_id='', **kwargs):
-        el_data = SCHEMA_SKELETON['dev'].get(el_id, dict())
-        if not el_data:
-             raise Exception(f'Element {el_id} not found')
-        element = Element(**el_data)
-        return UpdateElement(element=element)
+        # Get your data, use external function for convenience of refactoring
+        my_data = data.get_data(id)  
+        
+        # Push data into context to prorvide access for middleware
+        info.context.update({context_key: my_data})
+
+        # Init and return Graphene object, use `DataStructure` alias for convenience
+        return DataStructure(**my_data)
 
 
-class UpdateFlowchart(graphene.Mutation):
-    
-    # List params that is allowable to update
+class AddElement(graphene.Mutation):
+    """Add flowchart element"""
+
     class Arguments:
-        schema_id = String(default_value='')
-    #    el_data = String()
-      
-    # Response fields
-    print('> Call update schema')
-    data = Field(FxSchema)
+        type_id = Int(required=True, description="Flowchart element type_id")
+    
+    success = Boolean(default_value=False) 
+    json_data = String() 
 
-    #class Meta:
-    #    output = self.result
+    def mutate(self, info, type_id, context_key='update', success=False) :
 
-    def mutate(self, info, **kwargs) :
-        print('>>> Update flowchart')
-        data = FxSchema(**SCHEMA_SKELETON)
-        return UpdateFlowchart(data=data)
+        """
+        Todo:
+            - test for empty data is required
+            - test for error during data resolvinng is required
+        """
+
+        # Get your data from context
+        my_data = info.context.get(context_key)  
+        
+        # Retrieve element's data using external function for convenience
+        element = data.new_element(type_id)
+        
+        # Apply element to data `dev` section  
+        if element:
+            my_data['dev'].update(element) 
+            success = True
+       
+        # Push data back into context
+        info.context.update({context_key: my_data})
+        
+        return AddElement(success=success, json_data=json.dumps(element)) 
+
+
+class DelElement(graphene.Mutation):
+    """Delete flowchart element"""
+
+    class Arguments:
+        el_id = String(required=True, description="Flowchart element id")
+    
+    success = Boolean(default_value=False) 
+    
+    def mutate(self, info, el_id, context_key='update', success=False) :
+    
+        # Get your data from context
+        my_data = info.context.get(context_key)  
+        
+        # Retrieve element's data, use external function for convenience
+        element = my_data['dev'].get(el_id, None)
+        
+        # Remove elemeent if exists 
+        if element:
+            del my_data['dev'][el_id] 
+            success = True
+        
+        # Push data back to context
+        info.context.update({context_key: my_data})
+        return DelElement(success=success) 
 
 
 class Mutations(ObjectType):
-    update_element = UpdateElement.Field()
-    update_flowchart = UpdateFlowchart.Field()
-
-
-"""Query"""
+    #update_data = UpdateNestingData.Field()
+    add_element = AddElement.Field()
+    del_element = DelElement.Field()
+    #enable = EnableFlowchart.Field()  # Todo
+    #run = RunFlowchart.Field()        # Todo
+                 
 
 class Query(ObjectType):
-    name = String()
-    enable = String()
-    dev = Field(Element)
+
+    my_data = Field(DataStructure, id=Int(required=True, description="The interenal ID to distinguish your data"))
     
-    def resolve_name(root, info, n):
-        return info.context.get('name')
+    def resolve_my_data(root, info, id, data_key='update', **args):
+        data = info.context.get(data_key, None)
+        return DataStructure(**data)
 
 
-    def resolve_enable(root, info):
-        return 'off' 
+if __name__=='__main__':
+    """Usage example"""    
 
-    '''
-    def resolve_dev(root, info):
-        #print(f'i am resolver')
-        return Element()
-        #return {'el_id':'R2', 'el_name':'D2', 'el':'None', 'el1':'None'}
-        #return #ObjectType 
-        #return Element() #ObjectType {}
-    '''
+    query = """query($el_id: String, $update: String) {
+                    my_data {
+                            id
+                            name
+                            dev {
+                                element(el_id: $el_id) {
+                                    type_id
+                                    display_name(val: $update)
+                                    left
+                                    params {
+                                        currency {
+                                            value(val: $update)
+                                        }
+                                        ma {
+                                            value(val: 55)
+                                        }
+                                        s_in{value position(val: "BottomLeft")}
+                                    }
+                                }   
+                        }
+                }
+            } 
+    """
+    variables = {'el_id': 'ma_val', 'update': 'EURUSD'}
+    context = {'update': data.DATA_SAMPLE}
+    schema = Schema(query=Query, mutation=Mutations, auto_camelcase=False)
+    result = schema.execute(query, middleware=[NestingUpdate()], variables=variables, context=context)
+    print(json.dumps(result.data, sort_keys=False, indent=4))
+    
 
 
-context['update'] = SCHEMA_SKELETON
 
 
-schema = Schema(query=Query, mutation=Mutations, auto_camelcase=False)
-result = schema.execute(query, middleware=[ValidationMiddleware()], variables=variables, context=context)
-
-
-# If update query -> update result ???
-# But if not, how can we filter that
-
-print(json.dumps(result.data, sort_keys=False, indent=4))
-print(result.errors)
-
-
-#print(json.dumps(SCHEMA_SKELETON, sort_keys=False, indent=4))
-print(json.dumps(context.get('update'), sort_keys=False, indent=4))
-
-
-#query = 'mutation myFirstMutation {addElement(name:"s_in2"){element {id displayName typeId}}}'
-#result = schema.execute(query, root=Data)
-
-
-#print(Data)
+        
