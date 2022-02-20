@@ -15,18 +15,17 @@ import copy
 import graphene
 from graphene.test import Client
 import json
-from test import Query, Mutations, NestingUpdate, DATA_KEY
+from test import Query, NestingUpdate, DATA_KEY
 import data
 
 
-class SecurityTestCases(unittest.TestCase):
+class NestingUpdateTests(unittest.TestCase):
     
     def setUp(self):
-        self.schema = graphene.Schema(query=Query, mutation=Mutations, auto_camelcase=False)
+        self.schema = graphene.Schema(query=Query, mutation=graphene.Mutations, auto_camelcase=False)
         self.data = data.DATA_SAMPLE
         self.context_key = DATA_KEY
 
-    #@unittest.skip("Test is skipped temporary")
     def test_restricted_fields(self):
         """Test for attempt to change restricted field value
         
@@ -42,7 +41,7 @@ class SecurityTestCases(unittest.TestCase):
 
         """
         variables = {'el_id': 'ma_val'}
-        context = {}
+        context = {self.context_key: self.data}
         query = """query($el_id: String){
                         my_data {
                             id(val: 1234567)
@@ -59,7 +58,6 @@ class SecurityTestCases(unittest.TestCase):
         self.assertEqual(result.data, None, f'Restricted params data must returns Null result')
         self.assertEqual(len(result.errors), 2, f'The number of errors must be equal to amount of queried fields')
 
-    @unittest.skip("Test is skipped temporary")
     def test_custom_scalars(self):
         """Test custom defined scalars for correct values
 
@@ -78,21 +76,26 @@ class SecurityTestCases(unittest.TestCase):
 
         """
 
-        base_variables = {'id': 435456546, 'el_id': 'ma_val', 'ma_value': 2}
-        context = {}
-        mutation = """mutation($id: Int, $el_id: String, $ma: Int, $currency: String, $period: Int, $display: String){
-                    update_data(id: $id){
+        base_variables = {'el_id': 'ma_val', 'ma_value': 2}
+        context = {self.context_key: self.data}
+        mutation = """query($el_id: String, $ma: Int, $currency: String, $period: Int, $display: String){
+                        my_data {
                             id
                             currency(val: $currency)
-                            dev{
-                                element(el_id: $el_id){
+                            dev {
+                                element(el_id: $el_id) {
                                     display_name(val: $display)
-                                    params{
-                                        ma{value(val: $ma)}
-                                        period{value(val: $period)}
-                                        currency{value(val: $currency)}
+                                    params {
+                                        ma {
+                                            value(val: $ma)
+                                        }
+                                        period {
+                                            value(val: $period)
+                                        }
+                                        currency {
+                                            value(val: $currency)
+                                        }
                                     }    
-                                
                                 }   
                             }
                     }
@@ -120,7 +123,6 @@ class SecurityTestCases(unittest.TestCase):
                 result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
                 self.assertEqual(result.errors is None, test.result, f'Error {test.name}: {value} \n {result.errors}')
 
-    #@unittest.skip("Test is skipped temporary")
     def test_query(self):
         variables = {'el_id': 'ma_val', 'update': 'EURUSD'}
         context = {self.context_key: self.data}
@@ -152,8 +154,12 @@ class SecurityTestCases(unittest.TestCase):
 
         """
         result = self.schema.execute(query, middleware=[NestingUpdate()], variables=variables, context=context)
-        print(json.dumps(result.data, sort_keys=False, indent=4))
         
+        print('i am here')
+
+        print(json.dumps(result.data, sort_keys=False, indent=4))
+        print(result.errors[0]) if result.errors else 'Success'
+
         # Check if data has changed
         #print(json.dumps(self.data, sort_keys=False, indent=4))
 
