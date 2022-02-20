@@ -13,7 +13,6 @@ import unittest
 from collections import namedtuple
 import copy
 import graphene
-from graphene.test import Client
 import json
 from test import Query, NestingUpdate, DATA_KEY
 import data
@@ -22,7 +21,7 @@ import data
 class NestingUpdateTests(unittest.TestCase):
     
     def setUp(self):
-        self.schema = graphene.Schema(query=Query, mutation=graphene.Mutations, auto_camelcase=False)
+        self.schema = graphene.Schema(query=Query, auto_camelcase=False)
         self.data = data.DATA_SAMPLE
         self.context_key = DATA_KEY
 
@@ -61,34 +60,20 @@ class NestingUpdateTests(unittest.TestCase):
     def test_custom_scalars(self):
         """Test custom defined scalars for correct values
 
-        For  
-
-        ++ MA select                  1-255 -> rename to Smooth
-        ++ Period select              5, 15, 60, 240
-        ++ Available currency         ['GBPUSD', 'EURUSD']
-        -- On/off                     ['on', 'off']  
-        -- type_id (module name)      1-100000000 
-        -- position                   ['TopCenter', 'BottomLeft'] 
-        ++ Short name (Param name) String lengh 30 symbols, replace all excluding A-Z, a-z, 0-9, '+-=<>@$:;,.!?' 
-        -- Long name (Flowchart name) String lengh 30 symbols, replace all excluding A-Z, a-z, 0-9, '+-=<>@$:;,.!?' 
+            Period select              5, 15, 60, 240
+            Available currency         ['GBPUSD', 'EURUSD']
    
-        top, left -> int positive
-
         """
 
         base_variables = {'el_id': 'ma_val', 'ma_value': 2}
         context = {self.context_key: self.data}
-        mutation = """query($el_id: String, $ma: Int, $currency: String, $period: Int, $display: String){
+        mutation = """query($el_id: String, $currency: String, $period: Int){
                         my_data {
                             id
                             currency(val: $currency)
                             dev {
                                 element(el_id: $el_id) {
-                                    display_name(val: $display)
                                     params {
-                                        ma {
-                                            value(val: $ma)
-                                        }
                                         period {
                                             value(val: $period)
                                         }
@@ -102,22 +87,19 @@ class NestingUpdateTests(unittest.TestCase):
                 } 
         """
         
-        TestParams = namedtuple('TestParams', ['name', 'variable', 'values', 'result'])
+        TestCase = namedtuple('TestCase', ['name', 'variable', 'values', 'result'])
         test_cases = [                      
-            TestParams('Incorrect _Smooth value', 'ma', [0, -1, 256, 2.5, 'z'], False), 
-            TestParams('Correct _Smooth value', 'ma', [1, 255], True), 
-            TestParams('Incorrect _Quote', 'currency', ['USSGPY'], False), 
-            TestParams('Correct _Period', 'period', [5, 15, 60, 240], True), 
-            TestParams('Incorrect _Period', 'period', ['5', 0, 1, 1.5], False), 
-            TestParams('Correct _ShortString', 'display', ['Moving averange 1'], True), 
-            TestParams('Correct _ShortString', 'display', [f'Moving averange {"s"*30}', f'Moving @'], False), 
+            TestCase('Correct _Quote', 'currency', ['EURUSD', 'GBPUSD'], True), 
+            TestCase('Incorrect _Quote', 'currency', ['USSGPY'], False), 
+            TestCase('Correct _Period', 'period', [5, 15, 60, 240], True), 
+            TestCase('Incorrect _Period', 'period', ['5', 0, 1, 1.5], False), 
             
         ]
+        
         for test in test_cases:
             
             for value in test.values: 
-                #print(f'>>> {test.name}')
-                variables = copy.deepcopy(base_variables) #.update({test.variable: test.value})
+                variables = copy.deepcopy(base_variables)
                 variables.update({test.variable: value})
                 print(variables)
                 result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)

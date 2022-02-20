@@ -7,16 +7,22 @@ import json
 import data
 from structure import FlowchartStructure as DataStructure # Use such alias for your schema
 
+
+
+
+
 """
 
-Graphene usage to update and validate values of nested dictionary. Allow to update
-corresponding fields during GraphQL standart query syntax.  
+Graphene usage to update and validate values of nested dictionary. 
+Allow to update `DATA` dict during GraphQL query. The position of updated fields 
+is defined by query structure. 
+      
 
-Your graphene object should be designed to define data strucrure and field types.
+Your graphene object should be designed to define data structure and field types.
 Import your object as `DataStructue` alias to avoid naming collision. 
 
 A special middleware `StructureUpdate` allow to intercept field `args`, 
-validate them and update corresponding key -> value of Data dict. 
+validate them and update corresponding item in Data dict. 
 If validation has failed - update will be skipped, and your data remains.
 As a `Scalar` type is an endpoint of field resolving, `StructureUpdate` may utilize
 `serialize` method of corresponding field to validate it's update value. 
