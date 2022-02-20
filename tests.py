@@ -32,20 +32,23 @@ class NestingUpdateTests(unittest.TestCase):
         
         Fields:
             id
+            dev -> element -> id
             dev -> element -> type_id
+
 
         Expected:
             - An empty data must be returned
             - The number of errors must be equal to amount of queried fields
 
         """
-        variables = {'el_id': 'ma_val'}
+        variables = {'el_id': 'element1'}
         context = {self.context_key: self.data}
         query = """query($el_id: String){
                         my_data {
                             id(val: 1234567)
                             dev {
                                 element(el_id: $el_id) {
+                                    id(val: "new_id")
                                     type_id(val: 123456)
                                     
                                 }   
@@ -55,17 +58,17 @@ class NestingUpdateTests(unittest.TestCase):
         """
         result = self.schema.execute(query, variables=variables, context=context)
         self.assertEqual(result.data, None, f'Restricted params data must returns Null result')
-        self.assertEqual(len(result.errors), 2, f'The number of errors must be equal to amount of queried fields')
+        self.assertEqual(len(result.errors), 3, f'The number of errors must be equal to amount of queried fields')
 
     def test_custom_scalars(self):
         """Test custom defined scalars for correct values
 
             Period select              5, 15, 60, 240
             Available currency         ['GBPUSD', 'EURUSD']
-   
+
         """
 
-        base_variables = {'el_id': 'ma_val', 'ma_value': 2}
+        base_variables = {'el_id': 'element1', 'ma_value': 2}
         context = {self.context_key: self.data}
         mutation = """query($el_id: String, $currency: String, $period: Int){
                         my_data {
@@ -101,31 +104,24 @@ class NestingUpdateTests(unittest.TestCase):
             for value in test.values: 
                 variables = copy.deepcopy(base_variables)
                 variables.update({test.variable: value})
-                print(variables)
                 result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
                 self.assertEqual(result.errors is None, test.result, f'Error {test.name}: {value} \n {result.errors}')
 
     def test_query(self):
-        variables = {'el_id': 'ma_val', 'update': 'EURUSD'}
+        variables = {'el_id': 'element1', 'update': 'EURUSD'}
         context = {self.context_key: self.data}
         query = """query($el_id: String, $update: String) {
                     my_data {
                             id
                             name
+                            currency(val: $update)
                             dev{
                                 element(el_id: $el_id) {
-                                    type_id
-                                    display_name(val: $update)
-                                    left
+                                    id
                                     params {
                                         currency {
-                                            change
                                             value(val: $update)
                                         }
-                                        ma {
-                                            value(val: 55)
-                                        }
-                                        s_in{value position(val: "BottomLeft")}
                                     }
                                 }   
                             }
@@ -136,9 +132,6 @@ class NestingUpdateTests(unittest.TestCase):
 
         """
         result = self.schema.execute(query, middleware=[NestingUpdate()], variables=variables, context=context)
-        
-        print('i am here')
-
         print(json.dumps(result.data, sort_keys=False, indent=4))
         print(result.errors[0]) if result.errors else 'Success'
 

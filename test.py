@@ -27,6 +27,12 @@ If validation has failed - update will be skipped, and your data remains.
 As a `Scalar` type is an endpoint of field resolving, `StructureUpdate` may utilize
 `serialize` method of corresponding field to validate it's update value. 
 
+
+Todo:
+    el_id is hardcoded for element 
+    
+
+
 """
 
 DATA_KEY = 'update'
@@ -109,11 +115,9 @@ class NestingUpdate(object):
             except Exception as e:
                 #print(f'Failed to apply update {e}')    
                 return next(root, info, **args)
-                
 
             return result
             
-        #print('\n')
         return next(root, info, **args)
 
 
@@ -121,7 +125,7 @@ class Query(ObjectType):
 
     my_data = Field(DataStructure, id=Int(required=True, description="The interenal ID to distinguish your data"))
     
-    def resolve_my_data(root, info, id, data_key='update', **args):
+    def resolve_my_data(root, info, id, data_key=DATA_KEY, **args):
         data = info.context.get(data_key, None)
         return DataStructure(**data)
 
@@ -137,6 +141,7 @@ if __name__=='__main__':
 
     query = """query($el_id: String, $update: String, ) {
                     my_data {
+                            currency(val: update)
                             dev {
                                 element(el_id: $el_id) {
                                     params {
@@ -152,7 +157,7 @@ if __name__=='__main__':
                 }
             } 
     """
-    variables = {'el_id': 'ma_val', 'update': 'EURUSD'}
+    variables = {'el_id': 'element1', 'update': 'EURUSD'}
     
     # Put data into context using common DATA_KEY to provide access for middleware
     context = {DATA_KEY: data.DATA_SAMPLE}
