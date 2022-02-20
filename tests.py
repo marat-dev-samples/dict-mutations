@@ -120,9 +120,9 @@ class SecurityTestCases(unittest.TestCase):
                 result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
                 self.assertEqual(result.errors is None, test.result, f'Error {test.name}: {value} \n {result.errors}')
 
-    @unittest.skip("Test is skipped temporary")
+    #@unittest.skip("Test is skipped temporary")
     def test_query(self):
-        variables = {'id': 435456546, 'el_id': 'ma_val', 'update': 'EURUSD'}
+        variables = {'el_id': 'ma_val', 'update': 'EURUSD'}
         context = {self.context_key: self.data}
         query = """query($el_id: String, $update: String) {
                     my_data {
