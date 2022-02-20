@@ -23,6 +23,8 @@ As a `Scalar` type is an endpoint of field resolving, `StructureUpdate` may util
 
 """
 
+DATA_KEY = 'update'
+
 
 class NestingUpdate(object):
     """ Update nesting dict key - values during GraphQL field resolving
@@ -33,7 +35,7 @@ class NestingUpdate(object):
 
     """
     el_id = None         # This is specific only for TradingFlowcharts
-    context_key = 'update'
+    context_key = DATA_KEY
 
     def create_update(self, my_path, update=""):
         """Generates dict with a depth to corresponding field,
@@ -225,27 +227,16 @@ class Query(ObjectType):
 if __name__=='__main__':
     """Usage example
 
-   Update DATA_SAMPLE dict during the querying of corresponding fields. 
-   The position of updated field is defined by query structure, field value 
-   may be placed in `variables` or hardcoded directly in query. 
-   If no args be defined for the field - existing dict value will be resolved. 
-
-   is will be discovered 
-
-   Updates DATA_SAMPLE dict `ma`, `s_in`,  
-
+    Update DATA_SAMPLE dict during the querying of corresponding fields. 
+    The position of updated field is defined by query structure, field value 
+    may be placed in `variables` or hardcoded directly in query. 
+    If no args be defined for the field - existing dict value will be resolved. 
     """    
 
-    query = """query($el_id: String, $update: String) {
+    query = """query($el_id: String, $update: String, ) {
                     my_data {
-                            id
-                            name
-                            currency(val: $update)                                   )
                             dev {
                                 element(el_id: $el_id) {
-                                    type_id
-                                    display_name(val: $update)
-                                    left
                                     params {
                                         currency {
                                             value(val: $update)
@@ -253,7 +244,6 @@ if __name__=='__main__':
                                         ma {
                                             value(val: 55)
                                         }
-                                        s_in{value position(val: "BottomLeft")}
                                     }
                                 }   
                         }
@@ -261,11 +251,17 @@ if __name__=='__main__':
             } 
     """
     variables = {'el_id': 'ma_val', 'update': 'EURUSD'}
-    context = {'update': data.DATA_SAMPLE}
+    
+    # Put data into context using common DATA_KEY to provide access for middleware
+    context = {DATA_KEY: data.DATA_SAMPLE}
+    
+    # Execute query using `NestingUpdate` middleware
     schema = Schema(query=Query, mutation=Mutations, auto_camelcase=False)
     result = schema.execute(query, middleware=[NestingUpdate()], variables=variables, context=context)
-    print(json.dumps(result.data, sort_keys=False, indent=4))
     
+    # Output result
+    print(json.dumps(result.data, sort_keys=False, indent=4))
+    print(result.errors[0]) if result.errors else print('Success')
 
 
 

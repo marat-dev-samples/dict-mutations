@@ -15,7 +15,7 @@ import copy
 import graphene
 from graphene.test import Client
 import json
-from test import Query, Mutations, NestingUpdate
+from test import Query, Mutations, NestingUpdate, DATA_KEY
 import data
 
 
@@ -23,38 +23,31 @@ class SecurityTestCases(unittest.TestCase):
     
     def setUp(self):
         self.schema = graphene.Schema(query=Query, mutation=Mutations, auto_camelcase=False)
-        self.data = data.SCHEMA_SKELETON
-        self.context_key = 'update'
+        self.data = data.DATA_SAMPLE
+        self.context_key = DATA_KEY
 
-    """
-    def make_query(self, request, variables, context={}):
-            schema = graphene.Schema(query=Query, mutation=Mutations, auto_camelcase=False)
-            result = schema.execute(request, middleware=[StructureUpdate()], variables=variables, context=context)
-            return result        
-    """
-
-    @unittest.skip("Test is skipped temporary")
+    #@unittest.skip("Test is skipped temporary")
     def test_restricted_fields(self):
-        """Test changing restricted fields during mutation
+        """Test for attempt to change restricted field value
         
-        For this test request must contain all restricted fields 
+        Used request contained all restricted fields ??? 
         
         Fields:
-            Schema -> id
-            Schema -> dev -> element -> type_id
+            id
+            dev -> element -> type_id
 
         Expected:
             - An empty data must be returned
-            - The number of errors must be equal to count of restricted fields
+            - The number of errors must be equal to amount of queried fields
 
         """
-        variables = {'id': 435456546, 'el_id': 'ma_val'}
+        variables = {'el_id': 'ma_val'}
         context = {}
-        mutation = """mutation($id: Int, $el_id: String){
-                    update_data(id: $id){
+        query = """query($el_id: String){
+                        my_data {
                             id(val: 1234567)
-                            dev{
-                                element(el_id: $el_id){
+                            dev {
+                                element(el_id: $el_id) {
                                     type_id(val: 123456)
                                     
                                 }   
@@ -62,13 +55,15 @@ class SecurityTestCases(unittest.TestCase):
                     }
                 } 
         """
-        result = self.schema.execute(mutation, variables=variables, context=context)
+        result = self.schema.execute(query, variables=variables, context=context)
         self.assertEqual(result.data, None, f'Restricted params data must returns Null result')
-        self.assertEqual(len(result.errors), 2, f'Restricted param has changed, check result errors for details')
+        self.assertEqual(len(result.errors), 2, f'The number of errors must be equal to amount of queried fields')
 
     @unittest.skip("Test is skipped temporary")
     def test_custom_scalars(self):
-        """Test custom scalars values
+        """Test custom defined scalars for correct values
+
+        For  
 
         ++ MA select                  1-255 -> rename to Smooth
         ++ Period select              5, 15, 60, 240
@@ -115,7 +110,6 @@ class SecurityTestCases(unittest.TestCase):
             TestParams('Correct _ShortString', 'display', [f'Moving averange {"s"*30}', f'Moving @'], False), 
             
         ]
-
         for test in test_cases:
             
             for value in test.values: 
@@ -126,103 +120,6 @@ class SecurityTestCases(unittest.TestCase):
                 result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
                 self.assertEqual(result.errors is None, test.result, f'Error {test.name}: {value} \n {result.errors}')
 
-    @unittest.skip("Test is skipped temporary")
-    def test_mutation(self):
-        """Deprecated, use it to create and delete elemnets""" 
-
-        variables = {'id': 435456546, 'el_id': 'ma_val', 'update': 'EURUSD'}
-        context = {self.context_key: self.data}
-        mutation = """mutation($id: Int, $el_id: String, $update: String){
-                
-                    update_data(id: $id) {
-                            id
-                            name
-                            dev{
-                                element(el_id: $el_id) {
-                                    type_id
-                                    display_name(val: $update)
-                                    left
-                                    params {
-                                        currency {
-                                            change
-                                            value(val: $update)
-                                        }
-                                        ma {
-                                            value(val: 55)
-                                        }
-                                        s_in{value position(val: "BottomLeft")}
-                                    }
-                                }   
-                            }
-                     
-                    }
-    
-                } 
-
-        """
-        result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
-        print(json.dumps(result.data, sort_keys=False, indent=4))
-        #print(result.errors)
-
-        # Check if data has changed
-        print(json.dumps(get_data(34545), sort_keys=False, indent=4))
-
-    #@unittest.skip("Test is skipped temporary")
-    def test_add_element(self):
-        """Adding element to Flowchart
-
-        Todo 
-            use assert for both add and delete methods
-
-        """ 
-
-        variables = {'type_id': 750}
-        context = {self.context_key: self.data}
-        mutation = """mutation($type_id: Int){
-                        add_element(type_id: $type_id) {
-                            success
-                            json_data
-                        }    
-                } 
-
-        """
-        result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
-        print(json.dumps(result.data, sort_keys=False, indent=4))
-        print(result.errors)
-
-        # Check if data has changed, use assert here
-        #print(json.dumps(self.data, sort_keys=False, indent=4))
- 
-
-    #@unittest.skip("Test is skipped temporary")
-    def test_del_element(self):
-        """Delete element from Flowchart""" 
-
-        variables = {'el_id': 'ma_val'}
-        context = {self.context_key: self.data}
-        mutation = """mutation($el_id: String){
-                        del_element(el_id : $el_id) {
-                            success
-                        }    
-                } 
-
-        """
-        result = self.schema.execute(mutation, middleware=[NestingUpdate()], variables=variables, context=context)
-        print(json.dumps(result.data, sort_keys=False, indent=4))
-        print(result.errors)
-
-        # Check if data has changed, use assert here
-        #print(json.dumps(self.data, sort_keys=False, indent=4))
-         
-
-
-
-
-
-
-
-
-    
     @unittest.skip("Test is skipped temporary")
     def test_query(self):
         variables = {'id': 435456546, 'el_id': 'ma_val', 'update': 'EURUSD'}
