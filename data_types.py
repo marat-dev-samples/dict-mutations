@@ -1,14 +1,13 @@
 import graphene
-from graphene import InputObjectType, ObjectType, String, Field, String, Int, Field, List
+from graphene import ObjectType, String, Field, Int, List
 from graphene.types import Scalar
 import re
 
-
 AVAILABLE_QUOTES = ['GBPUSD', 'EURUSD']
 
-"""Custom Scalars"""
+
 class _ShortString(Scalar):
-    """Short string commonly used for displaying param name or current state"""
+    """Short string, commonly used for displaying name"""
     
     @staticmethod
     def serialize(val):
@@ -22,7 +21,7 @@ class _ShortString(Scalar):
 
 
 class _Quote(Scalar):
-    """Available quote, may vary for runned servers, use defined list of quotes"""
+    """Available quote, should be from defined list of quotes"""
 
     @staticmethod
     def serialize(val):
@@ -40,38 +39,20 @@ class _Period(Scalar):
             raise Exception('Incorrect period param')
         return val
     
-    
-class _Smooth(Scalar):
-    """Available smooth for line indicator like Moving averange, e.t.c. 
-    Must be an integer value [1-255]
-
-    """
-    @staticmethod
-    def serialize(val):
-        if val not in range(1, 256):
-            raise Exception('Incorrect smooth param')
-        return val
-
 
 class Param(graphene.Interface):
     """Interface for params which are common for all elements"""
      
-    id = String()                               # Restricted 
-    display_name = Field(String, val=String())  
+    id = String()                               # Restricted
+    display_name = Field(String, val=String())
     change = String()                           # Restricted
-    info_arr = String(default_value='sensor')  
+    info_arr = String(default_value='sensor')
     
 
 class StringParam(ObjectType):
     class Meta:
         interfaces = (Param, )
-    value = String(default_value='') 
-
-
-class SmoothSelect(ObjectType):
-    class Meta:
-        interfaces = (Param, )
-    value = Field(_Smooth, val=Int(), default_value=1, required=True)   
+    value = String(default_value='')
 
 
 class CurrencySelect(ObjectType):
@@ -79,35 +60,34 @@ class CurrencySelect(ObjectType):
     class Meta:
         interfaces = (Param, )
     change = String()                          # Restricted
-    value = Field(_Quote, val=String())    
+    value = Field(_Quote, val=String())
     
 
 class PeriodSelect(ObjectType):
     class Meta:
         interfaces = (Param, )
-    value = Field(_Period, val=Int())    
+    value = Field(_Period, val=Int())
     
 
 class ElementParams(ObjectType):
     """All available params of element"""
+    
     period = Field(PeriodSelect)
-    currency = Field(CurrencySelect) 
-    ma = Field(SmoothSelect) 
+    currency = Field(CurrencySelect)
     
 
 class Element(ObjectType):
     """Flowchart element structure"""
+    
     id = String(required=True)                             # Restricted
-    display_name = Field(_ShortString, val=String())
-    top = Field(Int, default_value=0, val=Int())            
-    left = Field(Int, default_value=880, val=Int())        
-    type_id = Field(_ShortString)                          # Restricted 
+    type_id = Field(Int, default_value=0)                  # Restricted
     params = Field(ElementParams)
 
 
 class _Dev(ObjectType):
     """Contains collection of elements, accessed by it's id"""
-    element = Field(Element, el_id=String())  
+    
+    element = Field(Element, el_id=String())
     
     def resolve_element(root, info, el_id, **kwargs):
         el_data = root.get(el_id)
@@ -118,11 +98,9 @@ class NestedStructure(ObjectType):
     """Flowchart settings structure, taken as an example"""
     
     id = String(required=True)                             # Restricted
-    name = String(required=True)          
-    enable = String(required=True)        
-    currency = Field(_Quote, val=String())    
-    datetime = String()  
-    dev = Field(_Dev, el_id=String())                  
+    name = _ShortString(required=True)
+    currency = Field(_Quote, val=String())
+    dev = Field(_Dev, el_id=String())
     elements = List(Element)
     
     def resolve_elements(root, info, **kwargs):

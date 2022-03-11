@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import collections
 from copy import deepcopy
-from graphene import ObjectType, Field, Int
+from graphene import ObjectType, Field
 
 # Import data type object with `DataStructue` alias to avoid naming collision. 
 from data_types import NestedStructure as DataStructure 
@@ -71,14 +71,14 @@ class NestingUpdate(object):
         field = info.return_type             
         result = field.serialize(update_value) if hasattr(field, 'serialize') else update_value
         
-        # Construct update dict and apply to data 
+        # Construct update dict and apply to data
         update = self.create_update(info.path, result)
         try:
             self.apply_update(info.context.get(self.context_key), update)
         except Exception:
             return next(root, info, **args)
         return result
-        
+
 
 class Query(ObjectType):
     my_data = Field(DataStructure)

@@ -18,7 +18,6 @@ import json
 import graphene
 from queries import Query, NestingUpdate, DATA_KEY
 
-
 # Create schema
 my_schema = graphene.Schema(query=Query, auto_camelcase=False)
 
@@ -30,42 +29,41 @@ DATA = {
     'dev': {
             'element1': {
                 'id': 'element1',
-                'type_id': '550', 
+                'type_id': 550,
                 'params': {
                     'currency': {
                         'value': 'GBPUSD'
                     },
                     'period': {
-                        'value': 15, 
+                        'value': 15,
                     }, 
                 }
             },
             'element2': {
                 'id': 'element2',
-                'type_id': '570', 
+                'type_id': 570,
                 'params': {
                     'currency': {
                         'value': 'GBPUSD'
                     },
                     'period': {
-                        'value': 60, 
+                        'value': 60,
                     }, 
                 }
             }
     }    
 }
 
-if __name__== '__main__':
+if __name__ == '__main__':
     """Usage example
 
-    Updates DATA_SAMPLE dict during the querying of corresponding fields. 
-    The position of updated field is defined by query structure, update value 
-    may be placed in `variables` or hardcoded directly in a query. 
-    If no args are provided for the field - existing key value will be resolved. 
+    Updates DATA_SAMPLE dict during the querying of corresponding fields.
+    The position of updated field is defined by query structure, update value
+    may be placed in `variables` or hardcoded directly in a query.
+    If no args are provided for the field - existing key value will be resolved.
+    Implement query to update nested keys.
     
-    """    
-
-    # Implement query to update nested key
+    """
     query = """query($el_id: String, $update: String, ) {
                     my_data {
                             currency(val: $update)
@@ -91,7 +89,7 @@ if __name__== '__main__':
     context = {DATA_KEY: DATA}
     
     # Execute query with `NestingUpdate` middleware
-    result = my_schema.execute(query, middleware=[NestingUpdate()], 
+    result = my_schema.execute(query, middleware=[NestingUpdate()],
                                variables=variables, context=context)
     
     # Print output
