@@ -223,13 +223,6 @@ class FxSchema(ObjectType):
         return name
 
 
-
-    
-
-
-
-
-
 class ValidationMiddleware(object):
 
     current = dict()
