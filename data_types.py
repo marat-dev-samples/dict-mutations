@@ -15,11 +15,9 @@ class _ShortString(Scalar):
         n = 30
         if len(val) > n:
             raise Exception(f'Too long string param: `{val}` must be less then {n} symbols')
-        
         # Remove any non digatals symbols, exclude delimiters
         if re.search(r'[^a-zA-z0-9-:=]+$', val):
             raise Exception(f'Not valid string param: `{val}` do not use specific symbols')
-        
         return val
 
 
@@ -73,11 +71,9 @@ class StringParam(ObjectType):
 class SmoothSelect(ObjectType):
     class Meta:
         interfaces = (Param, )
-    #change = String()
-    value = Field(_Smooth, val=Int(), default_value=1, required=True)    # This field is abailable for changing
+    value = Field(_Smooth, val=Int(), default_value=1, required=True)   
 
 
-# Param cirrency select
 class CurrencySelect(ObjectType):
     """Quote selection param"""
     class Meta:
@@ -86,14 +82,12 @@ class CurrencySelect(ObjectType):
     value = Field(_Quote, val=String())    
     
 
-# Param period select
 class PeriodSelect(ObjectType):
     class Meta:
         interfaces = (Param, )
     value = Field(_Period, val=Int())    
     
 
-"""Structure Definition"""
 class ElementParams(ObjectType):
     """All available params of element"""
     period = Field(PeriodSelect)
@@ -102,7 +96,7 @@ class ElementParams(ObjectType):
     
 
 class Element(ObjectType):
-    """Flowchart element common structure"""
+    """Flowchart element structure"""
     id = String(required=True)                             # Restricted
     display_name = Field(_ShortString, val=String())
     top = Field(Int, default_value=0, val=Int())            
@@ -112,7 +106,7 @@ class Element(ObjectType):
 
 
 class _Dev(ObjectType):
-    
+    """Contains collection of elements, accessed by it's id"""
     element = Field(Element, el_id=String())  
     
     def resolve_element(root, info, el_id, **kwargs):
@@ -121,16 +115,15 @@ class _Dev(ObjectType):
     
 
 class NestedStructure(ObjectType):
-    """Flowchart schema common structure"""
+    """Flowchart settings structure, taken as an example"""
     
-    id = String(required=True)            # Prohibited
+    id = String(required=True)                             # Restricted
     name = String(required=True)          
     enable = String(required=True)        
     currency = Field(_Quote, val=String())    
     datetime = String()  
     dev = Field(_Dev, el_id=String())                  
     elements = List(Element)
-
     
     def resolve_elements(root, info, **kwargs):
         return [Element(**el_data) for el, el_data in root.dev.items()]

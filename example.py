@@ -11,9 +11,7 @@ If validation of input value has failed - update will be skipped, and your data 
 Your graphene object should be designed to define data structure and field types.
 As a `Scalar` type is an endpoint of field resolving, `StructureUpdate` utilized
 `serialize` method of corresponding field to validate input value. 
-
-Python -V 3.7.2
-
+Python -V > 3.7.2
 """
 
 import json
@@ -24,9 +22,8 @@ from queries import Query, NestingUpdate, DATA_KEY
 # Create schema
 my_schema = graphene.Schema(query=Query, auto_camelcase=False)
 
-
 # Nested dict sample
-DATA_SAMPLE = {
+DATA = {
     'id': '123456789',            
     'name': 'Sample of elements settings',
     'currency': 'GBPUSD',
@@ -90,17 +87,17 @@ if __name__== '__main__':
     """
     variables = {'el_id': 'element2', 'update': 'EURUSD'}
     
-    # Put data into context with DATA_KEY to provide access for middleware
-    context = {DATA_KEY: DATA_SAMPLE}
+    # Put DATA into context with DATA_KEY to provide access for middleware
+    context = {DATA_KEY: DATA}
     
     # Execute query with `NestingUpdate` middleware
     result = my_schema.execute(query, middleware=[NestingUpdate()], 
                                variables=variables, context=context)
     
-    # Output result
+    # Print output
     print(json.dumps(result.data, sort_keys=False, indent=4))
     print(result.errors) if result.errors else print('Success')
     
     # Check result
-    updated_val = DATA_SAMPLE.get('dev').get('element2').get('params').get('currency').get('value')
+    updated_val = DATA.get('dev').get('element2').get('params').get('currency').get('value')
     assert updated_val == 'EURUSD'
