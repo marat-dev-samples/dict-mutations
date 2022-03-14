@@ -7,4 +7,4 @@ Your graphene object should be designed to define data structure and field types
 As a `Scalar` type is an endpoint of field resolving, `StructureUpdate` utilized
 `serialize` method of corresponding field to validate input value. 
 
-See and run example.py
+See and run <a href="https://github.com/marat-dev-samples/graphene-nesting-dict/blob/main/example.py">example.py</a>
