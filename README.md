@@ -1,5 +1,5 @@
 # graphene-nesting-dict
-Graphene utilization to update nested dictionary, it's allow to update nested data during GraphQL query. The position of updated fields is defined by query. 
+Graphene utilization to update nested dictionary, allow to update nested data during GraphQL query. The position of updated fields is defined by query. 
 
 A special middleware `StructureUpdate` is designed to intercept field `args`, validate them and update corresponding item in DATA dict. 
 If validation of input value has failed - update will be skipped, and your data remains.
