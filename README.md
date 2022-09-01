@@ -1,4 +1,4 @@
-# graphene-nesting-dict
+# dict-mutations
 Graphene utilization to update nested dictionary, allow to update nested data during GraphQL query. 
 The position of updated fields is defined by query. 
 
